@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TWS — Inicio</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a;
+           color: #e2e8f0; min-height: 100vh;
+           display: flex; flex-direction: column; align-items: center;
+           justify-content: center; padding: 2rem; }
+    h1  { color: #38bdf8; font-size: 2rem; margin-bottom: .5rem; }
+    .sub { color: #94a3b8; margin-bottom: 2.5rem; font-size: .95rem; }
+    .grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 1.2rem;
+            max-width: 700px; width: 100%; }
+    .card { background: #1e293b; border: 1px solid #334155;
+            border-radius: 10px; padding: 1.5rem; text-decoration: none;
+            color: inherit; transition: border-color .2s, transform .15s; }
+    .card:hover { border-color: #38bdf8; transform: translateY(-2px); }
+    .card h2 { color: #38bdf8; font-size: 1.1rem; margin-bottom: .5rem; }
+    .card p  { color: #94a3b8; font-size: .88rem; line-height: 1.5; }
+    .tag { display: inline-block; background: rgba(56,189,248,.12);
+           color: #38bdf8; padding: .15rem .5rem; border-radius: 4px;
+           font-size: .75rem; margin-top: .6rem; }
+    footer { margin-top: 3rem; color: #475569; font-size: .8rem; }
+  </style>
+</head>
+<body>
+  <h1>Telematics Web Server</h1>
+  <p class="sub">PIBL + TWS — Proyecto I &mdash; Elige un caso de prueba</p>
+
+  <div class="grid">
+    <a href="/caso1/" class="card">
+      <h2>Caso 1</h2>
+      <p>Página HTML con hipertextos y <strong>una imagen</strong>.</p>
+      <span class="tag">1 imagen</span>
+    </a>
+    <a href="/caso2/" class="card">
+      <h2>Caso 2</h2>
+      <p>Página HTML con hipertextos y <strong>múltiples imágenes</strong>.</p>
+      <span class="tag">5 imágenes</span>
+    </a>
+    <a href="/caso3/" class="card">
+      <h2>Caso 3</h2>
+      <p>Descarga de un <strong>único archivo de ~1 MB</strong> de datos aleatorios.</p>
+      <span class="tag">1 MB · 1 archivo</span>
+    </a>
+    <a href="/caso4/" class="card">
+      <h2>Caso 4</h2>
+      <p>Dashboard con <strong>múltiples archivos</strong> que suman ~1 MB en total.</p>
+      <span class="tag">~1 MB · 5 archivos</span>
+    </a>
+  </div>
+
+  <footer>Proyecto I — Telemática/Internet: Arquitectura y Protocolos</footer>
+</body>
+</html>

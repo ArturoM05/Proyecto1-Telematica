@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Caso 3 — Archivo 1 MB</title>
+  <style>
+    body { font-family: monospace; background: #0d1117; color: #c9d1d9;
+           display: flex; align-items: center; justify-content: center;
+           min-height: 100vh; margin: 0; }
+    .box { background: #161b22; border: 1px solid #30363d;
+           border-radius: 8px; padding: 2.5rem 3rem; max-width: 520px;
+           text-align: center; }
+    h1  { color: #58a6ff; font-size: 1.4rem; margin-bottom: 1rem; }
+    p   { color: #8b949e; line-height: 1.6; margin-bottom: 1.2rem; }
+    .size { font-size: 3rem; font-weight: bold; color: #3fb950; }
+    .unit { font-size: 1rem; color: #8b949e; display: block; }
+    a.btn { display: inline-block; margin-top: 1.5rem; padding: .7rem 1.8rem;
+            background: #238636; color: #fff; border-radius: 6px;
+            text-decoration: none; font-size: .95rem; }
+    a.btn:hover { background: #2ea043; }
+    nav { margin-top: 2rem; }
+    nav a { color: #58a6ff; margin: 0 .6rem; font-size: .85rem; }
+  </style>
+</head>
+<body>
+<div class="box">
+  <h1>TWS — Caso 3</h1>
+  <p>Transferencia de un único archivo binario.</p>
+  <span class="size">1 MB</span>
+  <span class="unit">1 048 576 bytes — datos aleatorios</span>
+  <p style="margin-top:1.2rem">
+    Sirve para verificar que el servidor transfiere archivos grandes
+    correctamente en múltiples bloques de <code>BUFFER_SIZE</code> (8 KB).
+  </p>
+  <a href="/caso3/archivo.bin" class="btn">⬇ Descargar archivo.bin</a>
+  <nav>
+    <a href="/caso1/">Caso 1</a>
+    <a href="/caso2/">Caso 2</a>
+    <a href="/caso4/">Caso 4</a>
+  </nav>
+</div>
+</body>
+</html>

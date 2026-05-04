@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Caso 4 — Dashboard TWS</title>
+  <link rel="stylesheet" href="/caso4/css/main.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="container flex justify-between items-center">
+    <span style="color:var(--primary);font-weight:700;">TWS Dashboard</span>
+    <div>
+      <a href="/caso1/">Caso 1</a>
+      <a href="/caso2/">Caso 2</a>
+      <a href="/caso3/">Caso 3</a>
+      <a href="/caso4/" class="active">Caso 4</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-3">
+
+  <div class="flex items-center gap-2 mb-3">
+    <img src="/caso4/img/logo.png" alt="Logo"
+         style="width:48px;height:48px;border-radius:8px;">
+    <div>
+      <h1>Monitor PIBL + TWS</h1>
+      <p style="margin:0">Caso 4 — múltiples archivos (~1 MB total)</p>
+    </div>
+  </div>
+
+  <div class="alert alert-info">
+    Esta página carga <strong>4 archivos</strong> que suman ~1 MB:
+    <code>index.html</code>, <code>css/main.css</code>,
+    <code>js/main.js</code> y <code>js/data.js</code>.
+    Sirve para verificar que el TWS sirve múltiples recursos por página
+    y que el PIBL los cachea correctamente.
+  </div>
+
+  <!-- Estadísticas -->
+  <h2>Estadísticas de peticiones</h2>
+  <div class="grid-3 mb-3">
+    <div class="card text-center">
+      <p class="mb-1">Total peticiones</p>
+      <span id="stat-total" style="font-size:2rem;color:var(--primary);font-weight:700">—</span>
+    </div>
+    <div class="card text-center">
+      <p class="mb-1">Respuestas 200 OK</p>
+      <span id="stat-ok" style="font-size:2rem;color:var(--success);font-weight:700">—</span>
+    </div>
+    <div class="card text-center">
+      <p class="mb-1">Errores (404 + 502)</p>
+      <span id="stat-errors" style="font-size:2rem;color:var(--danger);font-weight:700">—</span>
+    </div>
+    <div class="card text-center">
+      <p class="mb-1">404 Not Found</p>
+      <span id="stat-notfound" style="font-size:2rem;color:var(--warning);font-weight:700">—</span>
+    </div>
+    <div class="card text-center">
+      <p class="mb-1">Latencia media</p>
+      <span id="stat-avg" style="font-size:2rem;color:var(--secondary);font-weight:700">—</span>
+    </div>
+    <div class="card text-center">
+      <p class="mb-1">Latencia media (histórico)</p>
+      <span id="avg-latency" style="font-size:2rem;color:var(--primary);font-weight:700">—</span>
+    </div>
+  </div>
+
+  <!-- Distribución backends -->
+  <div class="card mb-3">
+    <h3>Distribución Round Robin</h3>
+    <p id="stat-backends" style="color:var(--success);font-family:monospace">—</p>
+  </div>
+
+  <!-- Gráfica de RPS -->
+  <div class="card mb-3">
+    <h3>Requests por segundo (últimos 60 s)</h3>
+    <div id="metrics-chart"></div>
+  </div>
+
+  <!-- Filtros -->
+  <h2>Log de peticiones</h2>
+  <div class="flex gap-1 mb-2">
+    <button id="btn-filter-all"  class="btn btn-outline">Todas</button>
+    <button id="btn-filter-get"  class="btn btn-primary">GET</button>
+    <button id="btn-filter-post" class="btn btn-secondary">POST</button>
+  </div>
+
+  <!-- Tabla -->
+  <div class="card" style="overflow-x:auto">
+    <table class="table" id="log-table">
+      <thead>
+        <tr>
+          <th>#</th><th>IP Cliente</th><th>Método</th><th>Path</th>
+          <th>Status</th><th>Backend</th><th>Tiempo</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Tabla de recursos cargados -->
+  <h2 class="mt-3">Recursos de esta página</h2>
+  <div class="card" style="overflow-x:auto">
+    <table class="table">
+      <thead>
+        <tr><th>Archivo</th><th>Tipo</th><th>Tamaño aprox.</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>/caso4/index.html</td>     <td>text/html</td>             <td>~ 4 KB</td></tr>
+        <tr><td>/caso4/css/main.css</td>   <td>text/css</td>              <td>~ 6 KB</td></tr>
+        <tr><td>/caso4/img/logo.png</td>   <td>image/png</td>             <td>~ 1 KB</td></tr>
+        <tr><td>/caso4/js/main.js</td>     <td>application/javascript</td><td>~ 540 KB</td></tr>
+        <tr><td>/caso4/js/data.js</td>     <td>application/javascript</td><td>~ 488 KB</td></tr>
+        <tr><td colspan="2"><strong>Total</strong></td><td><strong>~ 1 MB</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer class="footer">
+  Proyecto I &mdash; Telemática/Internet: Arquitectura y Protocolos &mdash; TWS/PIBL
+</footer>
+
+<script src="/caso4/js/main.js"></script>
+<script src="/caso4/js/data.js"></script>
+</body>
+</html>

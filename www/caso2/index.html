@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Caso 2 — TWS</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #1e1e2e; color: #cdd6f4; }
+    header { background: #181825; padding: 1.5rem 2rem;
+             border-bottom: 3px solid #89b4fa; }
+    header h1 { color: #89b4fa; font-size: 1.8rem; }
+    header p  { color: #a6adc8; font-size: .9rem; margin-top: .3rem; }
+    nav { background: #181825; padding: .5rem 2rem; }
+    nav a { color: #cba6f7; margin-right: 1.2rem; text-decoration: none;
+            font-size: .9rem; }
+    nav a:hover { color: #89b4fa; }
+    .hero { position: relative; }
+    .hero img { width: 100%; max-height: 280px; object-fit: cover; display: block; }
+    .hero-text { position: absolute; bottom: 1rem; left: 2rem;
+                 background: rgba(0,0,0,.55); padding: .5rem 1rem;
+                 border-radius: 4px; }
+    .hero-text h2 { color: #a6e3a1; font-size: 1.4rem; }
+    main { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    h2 { color: #89b4fa; margin: 1.5rem 0 .8rem; }
+    p  { line-height: 1.7; margin-bottom: 1rem; color: #cdd6f4; }
+    a  { color: #cba6f7; }
+    .cards { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1.5rem 0; }
+    .card { flex: 1 1 260px; background: #313244; border-radius: 8px;
+            overflow: hidden; }
+    .card img { width: 100%; height: 160px; object-fit: cover; display: block; }
+    .card-body { padding: 1rem; }
+    .card-body h3 { color: #a6e3a1; margin-bottom: .5rem; font-size: 1rem; }
+    .card-body p  { font-size: .88rem; color: #bac2de; margin: 0; }
+    .card-body a  { display: inline-block; margin-top: .6rem; font-size: .82rem;
+                    color: #89b4fa; text-decoration: none; }
+    .card-body a:hover { text-decoration: underline; }
+    footer { text-align: center; padding: 1.2rem; background: #181825;
+             color: #585b70; font-size: .85rem; margin-top: 3rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Telematics Web Server — Caso 2</h1>
+  <p>Página con hipertextos y múltiples imágenes &mdash; HTTP/1.1</p>
+</header>
+
+<nav>
+  <a href="/caso1/">Caso 1</a>
+  <a href="/caso2/">Caso 2</a>
+  <a href="/caso3/archivo.bin">Caso 3</a>
+  <a href="/caso4/">Caso 4</a>
+</nav>
+
+<div class="hero">
+  <img src="/caso2/img/hero.png" alt="Hero image">
+  <div class="hero-text"><h2>Arquitectura PIBL + TWS</h2></div>
+</div>
+
+<main>
+  <h2>Componentes del sistema</h2>
+  <p>
+    El sistema implementado sigue una arquitectura de tres capas: cliente,
+    proxy inverso y servidores de aplicación. Cada capa tiene una
+    responsabilidad bien definida dentro del modelo cliente/servidor.
+  </p>
+
+  <div class="cards">
+    <div class="card">
+      <img src="/caso2/img/card1.png" alt="PIBL">
+      <div class="card-body">
+        <h3>Proxy Inverso (PIBL)</h3>
+        <p>Recibe todas las peticiones del cliente y las distribuye entre
+           los backends usando Round Robin.</p>
+        <a href="https://datatracker.ietf.org/doc/rfc2616/" target="_blank">
+          Ver RFC 2616 →
+        </a>
+      </div>
+    </div>
+    <div class="card">
+      <img src="/caso2/img/card2.png" alt="Balanceador">
+      <div class="card-body">
+        <h3>Balanceador de Carga</h3>
+        <p>Distribuye las peticiones entre los tres servidores TWS de forma
+           equitativa, con selección atómica protegida por mutex.</p>
+        <a href="https://man7.org/linux/man-pages/man7/pthreads.7.html" target="_blank">
+          Ver pthreads →
+        </a>
+      </div>
+    </div>
+    <div class="card">
+      <img src="/caso2/img/card3.png" alt="TWS">
+      <div class="card-body">
+        <h3>Telematics Web Server</h3>
+        <p>Servidor HTTP/1.1 que sirve recursos estáticos y maneja GET,
+           HEAD y POST con concurrencia basada en hilos.</p>
+        <a href="https://man7.org/linux/man-pages/man2/socket.2.html" target="_blank">
+          Ver socket(2) →
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <h2>Caché con TTL</h2>
+  <p>
+    El PIBL implementa un caché persistente en disco. Cada recurso solicitado
+    se almacena como archivo <code>.cache</code> junto a un archivo
+    <code>.ts</code> con el timestamp de creación. El TTL se configura
+    en <code>pibl.conf</code> o como argumento CLI al lanzar el proceso.
+  </p>
+
+  <img src="/caso2/img/footer.png" alt="Footer decorativo"
+       style="width:100%;max-height:80px;object-fit:cover;
+              border-radius:6px;margin-top:1.5rem;">
+</main>
+
+<footer>
+  Proyecto I &mdash; Telemática/Internet: Arquitectura y Protocolos &mdash; TWS/PIBL
+</footer>
+
+</body>
+</html>
