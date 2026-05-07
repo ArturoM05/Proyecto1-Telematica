@@ -40,8 +40,10 @@ int main(int argc, char *argv[]) {
                 config.port, config.backend_count, config.cache_ttl);
 
     /* Crear directorio de caché si no existe */
-    mkdir(CACHE_DIR, 0755);
 
+if (mkdir(CACHE_DIR, 0755) < 0 && errno != EEXIST) {
+    log_message(LOG_ERROR, "No se pudo crear directorio cache");
+}
     /* Crear socket de escucha */
     int server_fd = create_server_socket(config.port);
     if (server_fd < 0) {
@@ -194,6 +196,11 @@ void *handle_client_thread(void *arg) {
     char client_ip[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &ctx->client_addr.sin_addr, client_ip, sizeof(client_ip));
     free(ctx);
+        /* Establecer timeout de recepción para evitar bloqueos indefinidos */
+    struct timeval tv;
+    tv.tv_sec  = 5;  // timeout de 5 segundos
+    tv.tv_usec = 0;
+    setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
     log_message(LOG_INFO, "Nueva conexión de %s", client_ip);
 
@@ -225,9 +232,9 @@ void *handle_client_thread(void *arg) {
     char cache_path[512];
     build_cache_path(req.uri, cache_path, sizeof(cache_path));
 
-    if (is_cache_valid(cache_path)) {
+    if (is_cache_valid(cache_path) && strcmp(req.method, "GET") == 0) {
         log_message(LOG_INFO, "[CACHE HIT] %s", req.uri);
-        serve_from_cache(client_fd, cache_path);
+        serve_from_cache(client_fd, cache_path);  // servir desde caché y cerrar conexión
         close(client_fd);
         return NULL;
     }
@@ -255,7 +262,7 @@ void *handle_client_thread(void *arg) {
     }
 
     /* ── Recibir respuesta del backend y reenviar al cliente ── */
-    relay_response(backend_fd, client_fd, cache_path);
+    relay_response(backend_fd, client_fd, cache_path, req.method);
 
     close(backend_fd);
     close(client_fd);
@@ -389,35 +396,113 @@ int connect_to_backend(Backend *backend) {
     return fd;
 }
 
+/* Verifica si un método es cacheable, solo para GET con status 200 */
+int is_method_cacheable(const char *method, int status_code) {
+
+    return (strcmp(method, "GET") == 0) && (status_code == 200);
+}
+
 /* ─────────────────────────────────────────────
    RELAY DE RESPUESTA: backend → cliente (+ caché)
    ───────────────────────────────────────────── */
-void relay_response(int backend_fd, int client_fd, const char *cache_path) {
+void relay_response(int backend_fd, int client_fd, const char *cache_path, const char *method) {
     char buf[BUFFER_SIZE];
-    int  n;
-    FILE *cache_fp = NULL;
+    char tmp_path[600];
 
-    /* Abrir archivo de caché para escritura */
-    pthread_mutex_lock(&cache_mutex);
-    cache_fp = fopen(cache_path, "wb");
-    pthread_mutex_unlock(&cache_mutex);
+    int  n;
+    int status_code = 0;
+    FILE *cache_fp = NULL;
+    char last_modified[128] = "";
+
+    /*Verificar status de respuesta leyendo el primer chunk*/
+    n = recv(backend_fd, buf, sizeof(buf) - 1, 0); 
+    if (n <= 0) return;
+    buf[n] = '\0';
+    sscanf(buf, "%*s %d", &status_code);  // extraer código de status
+
+
+
+        // Extraer Last-Modified del primer chunk
+    char *lm = strcasestr(buf, "Last-Modified:");
+    if (lm) {
+        /* Extraer el valor de Last-Modified si lo encuentra, limitando a 127 chars para evitar overflow */
+        sscanf(lm + 14, " %127[^\r\n]", last_modified);
+
+    }
+    /* En caso de ser un metodo Head comparamos el last modified para ver si se cambio el cache*/
+    if(strcmp(method, "HEAD") == 0) {
+    comparar_last_modified(last_modified, cache_path);
+    // Enviar solo los headers al cliente
+    send(client_fd, buf, n, 0);
+    return;
+
+    }
+
+/* verificar si el método es cacheable , solo para GET con status 200 */
+    if (is_method_cacheable(method, status_code)) {
+        snprintf(tmp_path, sizeof(tmp_path), "%s.tmp", cache_path); 
+        cache_fp = fopen(tmp_path, "wb");
+        if (!cache_fp) {
+            log_message(LOG_WARN, "No se pudo abrir tmp cache: %s", tmp_path);
+        }
+    }
+
+    /* Enviar el primer chunk al cliente y guardar en caché si aplica */
+    send(client_fd, buf, n, 0);
+    if (cache_fp) fwrite(buf, 1, n, cache_fp);
+
 
     while ((n = recv(backend_fd, buf, sizeof(buf), 0)) > 0) {
         /* Enviar al cliente */
         int sent = 0;
         while (sent < n) {
             int s = send(client_fd, buf + sent, n - sent, 0);
-            if (s <= 0) break;
+        if (s <= 0) goto done; 
             sent += s;
         }
         /* Guardar en caché */
         if (cache_fp) fwrite(buf, 1, n, cache_fp);
     }
 
-    if (cache_fp) {
+    done:
+
+        if (cache_fp) {
         fclose(cache_fp);
-        /* Guardar timestamp de creación (para TTL) */
-        write_cache_timestamp(cache_path);
+
+        // Si otro hilo ya terminó primero, rename lo sobreescribe
+        if (rename(tmp_path, cache_path) == 0) {
+            write_cache_timestamp(cache_path, last_modified);
+            log_message(LOG_INFO, "[CACHE WRITE] %s", cache_path);
+        } else {
+            // Si rename falla, limpiar el tmp
+            log_message(LOG_WARN, "rename falló: %s → %s", tmp_path, cache_path);
+            remove(tmp_path);
+        }
+    }
+}
+
+
+void comparar_last_modified(const char *last_modified_original,
+     const char *cache_path) {
+        char ts_path[600];
+    snprintf(ts_path, sizeof(ts_path), "%s.ts", cache_path);
+
+    FILE *f = fopen(ts_path, "r");
+    if (!f) return;
+
+    long cached_time = 0;  // leemos el cached_time para mantener el formato del archivo, aunque no lo usemos aquí
+    char last_modified_ts[128];
+    int fields_read = fscanf(f, "%ld %127[^\r\n]", &cached_time, last_modified_ts);
+
+    fclose(f);
+    if (fields_read != 2 ) return;
+    if (last_modified_original && last_modified_ts) {
+        if (strcmp(last_modified_original, last_modified_ts) != 0) {
+            /* El recurso en el backend cambió desde que se cacheó: invalidar caché */
+            remove(cache_path);
+            remove(ts_path);  
+            log_message(LOG_INFO, "[CACHE INVALIDATED] %s (Last-Modified cambió)", cache_path);
+        }
     }
 }
 
@@ -444,6 +529,7 @@ void build_cache_path(const char *uri, char *out, size_t out_size) {
     snprintf(out, out_size, "%s/%s.cache", CACHE_DIR, sanitized);
 }
 
+
 /* Verifica si el caché existe y su TTL no expiró */
 int is_cache_valid(const char *cache_path) {
     char ts_path[600];
@@ -453,7 +539,9 @@ int is_cache_valid(const char *cache_path) {
     if (!f) return 0;
 
     time_t cached_time = 0;
+
     int fields_read = fscanf(f, "%ld", &cached_time);
+
     fclose(f);
     if (fields_read != 1) return 0;
 
@@ -463,6 +551,7 @@ int is_cache_valid(const char *cache_path) {
         remove(ts_path);
         return 0;
     }
+        
 
     /* Verificar que el archivo de contenido también existe */
     FILE *cf = fopen(cache_path, "rb");
@@ -472,14 +561,19 @@ int is_cache_valid(const char *cache_path) {
     return 1;
 }
 
-/* Escribe timestamp de creación del caché */
-void write_cache_timestamp(const char *cache_path) {
+/* Escribe timestamp del caché y Last-Modified del recurso */
+void write_cache_timestamp(const char *cache_path, const char *last_modified) {
     char ts_path[600];
     snprintf(ts_path, sizeof(ts_path), "%s.ts", cache_path);
 
+    if (last_modified == NULL) {
+        /* Manejo de caso donde no se proporciona Last-Modified */
+        last_modified = "";
+    }
+
     FILE *f = fopen(ts_path, "w");
     if (f) {
-        fprintf(f, "%ld", (long)time(NULL));
+        fprintf(f, "%ld %s", (long)time(NULL), last_modified);
         fclose(f);
     }
 }
@@ -495,10 +589,11 @@ void serve_from_cache(int client_fd, const char *cache_path) {
         int sent = 0;
         while (sent < (int)n) {
             int s = send(client_fd, buf + sent, n - sent, 0);
-            if (s <= 0) break;
+            if (s <= 0) goto done_cache;
             sent += s;
         }
     }
+    done_cache:
     fclose(f);
 }
 

@@ -6,7 +6,8 @@
  * Uso:      ./server <HTTP_PORT> <LogFile> <DocumentRootFolder>
  * Ejemplo:  ./server 8081 tws.log /var/www/html
  */
-
+#define _GNU_SOURCE
+#define _XOPEN_SOURCE 700
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,6 +41,7 @@ typedef struct {
     char uri[MAX_URI_LEN];
     char version[16];
     char host[256];
+    char if_modified_since[128];
     int  content_length;
     int  header_end;     /* offset donde termina la cabecera en raw_buf */
 } HttpRequest;
@@ -72,11 +74,12 @@ void  handle_head(int fd, HttpRequest *req);
 void  handle_post(int fd, HttpRequest *req, const char *raw, int raw_len);
 void  send_response(int fd, int code, const char *reason,
                     const char *content_type, const char *body, size_t body_len);
-void  send_file_response(int fd, const char *filepath, int send_body);
-void  send_error(int fd, int code, const char *reason);
+void send_file_response(int fd, const char *filepath, int send_body, HttpRequest *req);
+void send_error(int fd, int code, const char *reason);
 const char *get_mime_type(const char *path);
 void  tws_log(const char *level, const char *fmt, ...);
 void  resolve_path(const char *uri, char *out, size_t out_size);
+time_t parse_http_date(const char *date_str);
 
 /* ────────────────────────────────
    MAIN
@@ -186,7 +189,7 @@ void *handle_client(void *arg) {
     } else if (strcmp(req.method, "POST") == 0) {
         handle_post(fd, &req, raw, n);
     } else {
-        send_error(fd, 400, "Method Not Supported");
+        send_error(fd, 405, "Method Not Supported");
     }
 
     close(fd);
@@ -262,6 +265,12 @@ int parse_request(const char *raw, int len, HttpRequest *req) {
     const char *end = strstr(raw, "\r\n\r\n");
     req->header_end = end ? (int)(end - raw) + 4 : len;
 
+    /* Extraer If-Modified-Since */
+    const char *ims = strcasestr(raw, "If-Modified-Since:");
+    if (ims) {
+        sscanf(ims + 18, " %127[^\r\n]", req->if_modified_since);
+    }
+
     return 0;
 }
 
@@ -272,6 +281,7 @@ void resolve_path(const char *uri, char *out, size_t out_size) {
     /* Quitar query string */
     char clean_uri[MAX_URI_LEN];
     strncpy(clean_uri, uri, sizeof(clean_uri) - 1);
+    clean_uri[sizeof(clean_uri) - 1] = '\0';
     char *q = strchr(clean_uri, '?');
     if (q) *q = '\0';
 
@@ -296,7 +306,7 @@ void resolve_path(const char *uri, char *out, size_t out_size) {
 void handle_get(int fd, HttpRequest *req) {
     char path[MAX_PATH_LEN];
     resolve_path(req->uri, path, sizeof(path));
-    send_file_response(fd, path, 1 /* enviar body */);
+    send_file_response(fd, path, 1 /* enviar body */, req);
 }
 
 /* ────────────────────────────────
@@ -305,7 +315,7 @@ void handle_get(int fd, HttpRequest *req) {
 void handle_head(int fd, HttpRequest *req) {
     char path[MAX_PATH_LEN];
     resolve_path(req->uri, path, sizeof(path));
-    send_file_response(fd, path, 0 /* no enviar body */);
+    send_file_response(fd, path, 0 /* no enviar body */, req);
 }
 
 /* ────────────────────────────────
@@ -352,15 +362,53 @@ void handle_post(int fd, HttpRequest *req, const char *raw, int raw_len) {
 }
 
 /* ────────────────────────────────
+   PARSE HTTP DATE (If-Modified-Since)
+   ──────────────────────────────── */
+time_t parse_http_date(const char *date_str) {
+    struct tm tm;
+    memset(&tm, 0, sizeof(tm));
+
+    if (strptime(date_str, "%a, %d %b %Y %H:%M:%S GMT", &tm) == NULL)
+        return (time_t)-1;
+
+    return timegm(&tm);  // GMT
+}
+
+/* ────────────────────────────────
    ENVIAR ARCHIVO AL CLIENTE
    ──────────────────────────────── */
-void send_file_response(int fd, const char *filepath, int send_body) {
+void send_file_response(int fd, const char *filepath, int send_body, HttpRequest *req) {
     struct stat st;
     if (stat(filepath, &st) < 0 || !S_ISREG(st.st_mode)) {
         send_error(fd, 404, "Not Found");
         tws_log("WARN", "404 %s", filepath);
         return;
     }
+
+    char timebuf[128];
+    struct tm *tm = gmtime(&st.st_mtime);
+    strftime(timebuf, sizeof(timebuf),
+         "%a, %d %b %Y %H:%M:%S GMT", tm);
+
+    /* Validación If-Modified-Since */
+    if (req->if_modified_since[0] != '\0') {
+        time_t client_time = parse_http_date(req->if_modified_since);
+
+        if (client_time != (time_t)-1 && st.st_mtime <= client_time) {
+        char resp[256];
+        int len = snprintf(resp, sizeof(resp),
+            "HTTP/1.1 304 Not Modified\r\n"
+            "Last-Modified: %s\r\n"
+            "Connection: close\r\n"
+            "\r\n",
+            timebuf);
+
+        send(fd, resp, len, 0);
+            tws_log("INFO", "304 Not Modified %s", filepath);
+            return;
+        }
+    }
+
 
     const char *mime = get_mime_type(filepath);
     long file_size   = (long)st.st_size;
@@ -371,9 +419,10 @@ void send_file_response(int fd, const char *filepath, int send_body) {
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: %s\r\n"
         "Content-Length: %ld\r\n"
+        "Last-Modified: %s\r\n"
         "Connection: close\r\n"
         "\r\n",
-        mime, file_size);
+        mime, file_size, timebuf);
 
     send(fd, headers, hlen, 0);
     tws_log("INFO", "200 OK %s (%ld bytes, %s)", filepath, file_size, mime);

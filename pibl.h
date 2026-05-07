@@ -12,6 +12,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <ctype.h>
+#include <sys/time.h>
 #include <time.h>
 
 /* ── Red ── */
@@ -108,12 +109,13 @@ Backend *select_backend(void);
 
 /* Backend */
 int      connect_to_backend(Backend *backend);
-void     relay_response(int backend_fd, int client_fd, const char *cache_path); /* NULL = no cachear */
+void     relay_response(int backend_fd, int client_fd, const char *cache_path, const char *method); /* NULL = no cachear */
 
 /* Caché */
 void     build_cache_path(const char *uri, char *out, size_t out_size);
 int      is_cache_valid(const char *cache_path);
-void     write_cache_timestamp(const char *cache_path);
+void     write_cache_timestamp(const char *cache_path, const char *last_modified);
+void     comparar_last_modified(const char *last_modified_original, const char *cache_path); // ← agregar
 void     serve_from_cache(int client_fd, const char *cache_path);
 
 /* Log */
