@@ -591,18 +591,109 @@ Separar el primer `recv()` del loop general permitió inspeccionar los headers s
 ## 3. Conclusiones
 
 
+El desarrollo del proyecto permitió pasar de entender el protocolo HTTP de forma teórica a implementarlo desde cero sobre sockets, enfrentando los mismos problemas que resuelven los servidores web reales. Esa distancia entre la teoría y la práctica fue el aprendizaje más valioso del proyecto ya que pudimos conectar lo teórico con lo práctico aplicado a casos simples, pero reales.
+
+El RFC 2616 dejó de ser un documento de referencia abstracto para convertirse en una especificación de trabajo concreta. Detalles como la estructura exacta de una request line, el comportamiento esperado de HEAD respecto a GET, la semántica de If-Modified-Since con 304 Not Modified, o las reglas de caché definidas en §13, tuvieron que ser leídos, interpretados y traducidos directamente a código. Ese proceso de convertir una especificación en comportamiento observable es una habilidad que no se desarrolla leyendo el RFC, sino implementándolo.
+
+Trabajar directamente con la API de sockets expuso la complejidad que las bibliotecas de red normalmente ocultan. Gestionar el ciclo de vida de los file descriptors, configurar opciones de socket como SO_REUSEADDR y SO_RCVTIMEO, manejar los fragmentos arbitrarios que devuelve recv(), y coordinar múltiples hilos sobre recursos compartidos sin generar condiciones de carrera, son problemas que los frameworks modernos resuelven internamente.
+
+Desde el punto de vista técnico, el sistema cumplió todos los requisitos planteados y fue desplegado exitosamente en cuatro instancias EC2 de AWS: una ejecutando el PIBL y tres ejecutando instancias independientes del TWS. Las pruebas confirmaron el correcto funcionamiento del balanceo Round Robin, la reducción de latencia en peticiones cacheadas, la invalidación de caché por cambio de Last-Modified, y el manejo concurrente de múltiples clientes simultáneos.
+
+Otro de los aprendizajes fue la importancia del diseño de la configuración. Haber externalizado todos los parámetros operacionales del PIBL a pibl.conf —backends, puerto, TTL, log— simplificó enormemente el despliegue en AWS: ajustar el sistema para apuntar a las IPs reales de las instancias EC2 fue cuestión de editar un archivo de texto, sin recompilar.
+
+En conjunto, el proyecto demostró que los conceptos de la capa de aplicación de Internet —parsing de mensajes, concurrencia, caché, balanceo de carga— no son abstracciones distantes sino mecanismos concretos que se pueden construir, depurar y desplegar con las herramientas fundamentales del lenguaje C 
+
+
 
 ---
-
-
-
 
 ## 4. Referencias
 
+- Fielding, R. et al. RFC 2616: Hypertext Transfer Protocol -- HTTP/1.1.
+- Linux man pages: socket, bind, listen, accept, connect, read, write, getaddrinfo.
+- Guia del proyecto
+- Meterial del curso 
 
 
 ---
 
-
-
 ## Apendice A: Pruebas y Evidencias
+
+
+### Despliegue: 
+
+<details>
+<summary>PIBL</summary>
+
+![](https://github.com/DorianAlejandroGuisaoO/Taller1_P1/blob/70e283b3fc70a80fe5db4b19479adf4dc1ffe7e2/media/movie/images/PIBL.png)
+
+</details>
+
+<details>
+<summary>Logs PIBL</summary>
+
+![](https://github.com/DorianAlejandroGuisaoO/Taller1_P1/blob/70e283b3fc70a80fe5db4b19479adf4dc1ffe7e2/media/movie/images/Logs%20PIBL.png)
+
+</details>
+
+<details>
+<summary>TWS 1</summary>
+
+![](https://github.com/DorianAlejandroGuisaoO/Taller1_P1/blob/70e283b3fc70a80fe5db4b19479adf4dc1ffe7e2/media/movie/images/TWS1.png)
+
+</details>
+
+<details>
+<summary>TWS 2</summary>
+
+![](https://github.com/DorianAlejandroGuisaoO/Taller1_P1/blob/70e283b3fc70a80fe5db4b19479adf4dc1ffe7e2/media/movie/images/tws2.png)
+
+</details>
+
+
+<details>
+<summary>TWS 3</summary>
+
+![](https://github.com/DorianAlejandroGuisaoO/Taller1_P1/blob/70e283b3fc70a80fe5db4b19479adf4dc1ffe7e2/media/movie/images/tws3.png)
+
+</details>
+
+
+### Caso 1: Página web con algunos hipertextos y una imagen. 
+
+<details>
+<summary>Caso  1</summary>
+
+![](https://github.com/DorianAlejandroGuisaoO/Taller1_P1/blob/70e283b3fc70a80fe5db4b19479adf4dc1ffe7e2/media/movie/images/Caso%201%20Real%20.png)
+
+</details>
+
+### Caso 2: Página web con algunos hipertextos y múltiples 
+imágenes. 
+
+<details>
+<summary>Caso  2</summary>
+
+![](https://github.com/DorianAlejandroGuisaoO/Taller1_P1/blob/70e283b3fc70a80fe5db4b19479adf4dc1ffe7e2/media/movie/images/Caso%202%20.png)
+
+</details>
+
+### Caso 3: Página web que contiene un solo archivo de 
+aproximadamente un tamaño de 1Mb.
+
+<details>
+<summary>Caso  3</summary>
+
+![](https://github.com/DorianAlejandroGuisaoO/Taller1_P1/blob/70e283b3fc70a80fe5db4b19479adf4dc1ffe7e2/media/movie/images/CaSO%203%20.png)
+
+</details>
+
+### Caso 4: Página web que contiene múltiples archivos y que 
+aproximadamente tiene un tamaño de 1MB
+
+<details>
+<summary>Caso  4</summary>
+
+![](https://github.com/DorianAlejandroGuisaoO/Taller1_P1/blob/70e283b3fc70a80fe5db4b19479adf4dc1ffe7e2/media/movie/images/Caso%204%20.png)
+
+</details>
